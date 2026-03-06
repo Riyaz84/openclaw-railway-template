@@ -1,7 +1,8 @@
-FROM node:22-bookworm
+FROM kalilinux/kali-rolling
 
-RUN apt-get update \
-  && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
+ENV DEBIAN_FRONTEND=noninteractive
+
+RUN apt-get update && apt-get install -y \
     ca-certificates \
     curl \
     git \
@@ -10,14 +11,20 @@ RUN apt-get update \
     python3 \
     build-essential \
     zip \
+    nodejs \
+    npm \
   && rm -rf /var/lib/apt/lists/*
 
+# upgrade npm and install pnpm
+RUN npm install -g npm@latest pnpm
+
+# install openclaw
 RUN npm install -g openclaw@2026.3.2
 
 WORKDIR /app
 
 COPY package.json pnpm-lock.yaml ./
-RUN corepack enable && pnpm install --frozen-lockfile --prod
+RUN pnpm install --frozen-lockfile --prod
 
 COPY src ./src
 COPY --chmod=755 entrypoint.sh ./entrypoint.sh
@@ -28,6 +35,8 @@ RUN useradd -m -s /bin/bash openclaw \
   && mkdir -p /home/linuxbrew/.linuxbrew && chown -R openclaw:openclaw /home/linuxbrew
 
 USER openclaw
+
+# install Homebrew
 RUN NONINTERACTIVE=1 /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
 
 ENV PATH="/home/linuxbrew/.linuxbrew/bin:/home/linuxbrew/.linuxbrew/sbin:${PATH}"
@@ -37,6 +46,7 @@ ENV HOMEBREW_REPOSITORY="/home/linuxbrew/.linuxbrew/Homebrew"
 
 ENV PORT=8080
 ENV OPENCLAW_ENTRY=/usr/local/lib/node_modules/openclaw/dist/entry.js
+
 EXPOSE 8080
 
 HEALTHCHECK --interval=30s --timeout=5s --start-period=10s \
